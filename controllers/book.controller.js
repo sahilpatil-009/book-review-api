@@ -220,17 +220,14 @@ const DeleteOwnReview = async (req, res) => {
   }
 };
 
-const SearchBook = async (req,res) => {
+const SearchBook = async (req, res) => {
   try {
     const query = req.query.q?.trim();
-
     if (!query) {
       return res.status(400).json({ error: "Search query is required" });
     }
 
-    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
 
     const searchFilter = {
       $or: [
@@ -240,7 +237,12 @@ const SearchBook = async (req,res) => {
     };
 
     const totalBooks = await Books.countDocuments(searchFilter);
-    const totalPages = Math.ceil(totalBooks / limit);
+    const totalPages = Math.ceil(totalBooks / limit) || 1;
+
+    // Clamp page number to totalPages
+    const page = Math.min(parseInt(req.query.page) || 1, totalPages);
+
+    const skip = (page - 1) * limit;
 
     const books = await Books.find(searchFilter)
       .populate("addedBy", "firstname lastname email")
@@ -248,7 +250,7 @@ const SearchBook = async (req,res) => {
       .skip(skip)
       .limit(limit);
 
-    res.json({
+    return res.json({
       query,
       books,
       pagination: {
@@ -261,11 +263,10 @@ const SearchBook = async (req,res) => {
     });
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal Server error !" });
+    return res.status(500).json({ success: false, message: "Internal Server error!" });
   }
 };
+
 
 module.exports = {
   GetAllbooks,
